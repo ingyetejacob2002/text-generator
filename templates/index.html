@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GPT-2 Text Generator</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+<div class="page">
+
+    <header class="masthead">
+        <div class="masthead-mark">
+            <span class="dot"></span>
+            <span class="dot"></span>
+            <span class="dot"></span>
+        </div>
+        <div class="masthead-text">
+            <h1>Text generator</h1>
+            <p class="subtitle">GPT-2 inference &middot; local session</p>
+        </div>
+        <div class="masthead-status" id="status-pill">
+            <span class="status-dot"></span>
+            <span id="status-label">idle</span>
+        </div>
+    </header>
+
+    <main class="console">
+
+        <section class="panel panel-input">
+            <div class="panel-head">
+                <span class="panel-label">prompt</span>
+                <span class="panel-hint" id="char-count">0 characters</span>
+            </div>
+            <div class="input-shell">
+                <span class="caret">&gt;</span>
+                <textarea id="prompt" placeholder="Artificial intelligence is..." spellcheck="false" rows="4"></textarea>
+            </div>
+            <div class="panel-foot">
+                <button class="btn-generate" id="generate-btn" onclick="generateText()">
+                    <span class="btn-label">Generate</span>
+                    <span class="btn-key">&crarr;</span>
+                </button>
+                <span class="panel-note">Ctrl + Enter to run</span>
+            </div>
+        </section>
+
+        <section class="panel panel-output">
+            <div class="panel-head">
+                <span class="panel-label">output</span>
+                <span class="panel-hint" id="token-count">0 tokens</span>
+            </div>
+            <div class="output-shell" id="output-shell">
+                <pre id="output">Output will print here once you run a prompt.</pre>
+                <span class="cursor-blink" id="cursor" hidden></span>
+            </div>
+        </section>
+
+    </main>
+
+    <footer class="foot-note">
+        <span>Model: gpt2</span>
+        <span class="divider">&middot;</span>
+        <span>Served via Flask</span>
+    </footer>
+
+</div>
+
+<script>
+const promptEl = document.getElementById("prompt");
+const outputEl = document.getElementById("output");
+const outputShell = document.getElementById("output-shell");
+const cursorEl = document.getElementById("cursor");
+const statusPill = document.getElementById("status-pill");
+const statusLabel = document.getElementById("status-label");
+const charCount = document.getElementById("char-count");
+const tokenCount = document.getElementById("token-count");
+const generateBtn = document.getElementById("generate-btn");
+
+function setStatus(state) {
+    statusPill.className = "masthead-status " + state;
+    statusLabel.textContent = state === "running" ? "running" : state === "error" ? "error" : state === "done" ? "done" : "idle";
+}
+
+function countTokensApprox(text) {
+    if (!text) return 0;
+    return text.trim().split(/\s+/).filter(Boolean).length;
+}
+
+promptEl.addEventListener("input", () => {
+    charCount.textContent = promptEl.value.length + " characters";
+});
+
+promptEl.addEventListener("keydown", (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+        e.preventDefault();
+        generateText();
+    }
+});
+
+async function generateText() {
+    const prompt = promptEl.value.trim();
+    if (!prompt) {
+        promptEl.focus();
+        return;
+    }
+
+    generateBtn.disabled = true;
+    setStatus("running");
+    outputShell.classList.add("is-loading");
+    outputEl.textContent = "";
+    cursorEl.hidden = false;
+    tokenCount.textContent = "generating...";
+
+    try {
+        const response = await fetch("/generate", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ prompt })
+        });
+
+        const data = await response.json();
+
+        if (data.result) {
+            outputEl.textContent = data.result;
+            tokenCount.textContent = countTokensApprox(data.result) + " tokens";
+            setStatus("done");
+        } else {
+            outputEl.textContent = "Error: no result returned from the model.";
+            tokenCount.textContent = "0 tokens";
+            setStatus("error");
+        }
+    } catch (err) {
+        outputEl.textContent = "Error: could not reach the generation endpoint.";
+        tokenCount.textContent = "0 tokens";
+        setStatus("error");
+    } finally {
+        cursorEl.hidden = true;
+        outputShell.classList.remove("is-loading");
+        generateBtn.disabled = false;
+    }
+}
+</script>
+
+</body>
+</html>
