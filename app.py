@@ -4,7 +4,7 @@ from transformers import pipeline
 app = Flask(__name__)
 
 # Load model once at startup
-lm_generator = pipeline("text-generation", model="gpt2")
+lm_generator = pipeline("text-generation", model="distilgpt2")
 
 @app.route("/")
 def home():
